@@ -5,6 +5,12 @@ public class LeagueRoot
     public Economyleague[] economyLeagues { get; set; }
 }
 
+public class PoeNinjaLeague
+{
+    public string id { get; set; }
+    public string name { get; set; }
+}
+
 public class Economyleague
 {
     public string name { get; set; }

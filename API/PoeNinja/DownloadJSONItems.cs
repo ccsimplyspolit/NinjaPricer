@@ -13,10 +13,10 @@ public class DataDownloader
     private const string BaseUrl = "https://poe.ninja";
 
     private static string GetExchangeLink(string league, string type)
-        => $"{BaseUrl}/poe2/api/economy/exchange/current/overview?league={league}&type={type}";
+        => $"{BaseUrl}/poe2/api/economy/exchange/current/overview?league={Uri.EscapeDataString(league)}&type={Uri.EscapeDataString(type)}";
 
     private static string GetStashLink(string league, string type)
-        => $"{BaseUrl}/poe2/api/economy/stash/current/item/overview?league={league}&type={type}";
+        => $"{BaseUrl}/poe2/api/economy/stash/current/item/overview?league={Uri.EscapeDataString(league)}&type={Uri.EscapeDataString(type)}";
 
     private int _updating;
     public CollectiveApiData CollectedData { get; set; }
@@ -60,6 +60,7 @@ public class DataDownloader
         // The distinct key also changes the on-disk cache filename to Tablets.json, so a stale
         // Maps.json backup from an older league can no longer surface wrong prices.
         { "Tablets", "UniqueTablets"},
+        { "PrecursorTablets", "PrecursorTablets"},
         { "Charms", "UniqueCharms" },
         { "SanctumRelics", "UniqueSanctumRelics" },
     };
@@ -161,6 +162,7 @@ public class DataDownloader
             case "Flasks": data.Flasks = value; break;
             case "Jewels": data.Jewels = value; break;
             case "Tablets": data.Tablets = value; break;
+            case "PrecursorTablets": data.PrecursorTablets = value; break;
             case "Charms": data.Charms = value; break;
             case "SanctumRelics": data.SanctumRelics = value; break;
         }

@@ -14,6 +14,7 @@ public enum ItemTypes
     UniqueWeapon,
     UniqueCharm,
     UniqueMap,
+    PrecursorTablet,
     SkillGem,
     UncutGem,
     Omen,

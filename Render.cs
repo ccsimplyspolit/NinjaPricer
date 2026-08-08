@@ -436,6 +436,7 @@ public partial class NinjaPricer
 
                 break;
             case ItemTypes.UniqueMap:
+            case ItemTypes.PrecursorTablet:
             case ItemTypes.SkillGem:
             case ItemTypes.UncutGem:
                 if (priceInDivines >= 0.1)

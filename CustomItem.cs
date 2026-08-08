@@ -310,6 +310,13 @@ public class CustomItem
         {
             ItemType = ItemTypes.UncutGem;
         }
+        else if (ClassName == "Tablet")
+        {
+            // PoE2 Precursor Tablets are normal/magic/rare items. They are not
+            // unique maps, so they must use poe.ninja's PrecursorTablets stash
+            // category instead of the UniqueTablets overview.
+            ItemType = ItemTypes.PrecursorTablet;
+        }
         else
         {
             switch (Rarity) // Unique information

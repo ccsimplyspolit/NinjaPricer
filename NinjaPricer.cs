@@ -216,15 +216,32 @@ public partial class NinjaPricer : BaseSettingsPlugin<NinjaPricerSettings>
             leagueList.Add(playerLeague);
         }
 
-        try
+        var leagueUrls = new[]
         {
-            var leagueListFromUrl = Utils.DownloadFromUrl("https://poe.ninja/poe2/api/data/index-state").Result;
-            var leagueData = JsonConvert.DeserializeObject<LeagueRoot>(leagueListFromUrl);
-            leagueList.UnionWith(leagueData.economyLeagues.Select(league => league.name));
-        }
-        catch (Exception ex)
+            "https://poe.ninja/poe2/api/economy/leagues",
+            // Keep the older index-state route as a compatibility fallback for
+            // temporary API deployments that do not expose economy/leagues.
+            "https://poe.ninja/poe2/api/data/index-state",
+        };
+
+        foreach (var leagueUrl in leagueUrls)
         {
-            LogError($"Failed to download the league list: {ex}");
+            try
+            {
+                var leagueListFromUrl = Utils.DownloadFromUrl(leagueUrl).GetAwaiter().GetResult();
+                var names = ParsePoeNinjaLeagueNames(leagueListFromUrl);
+                if (names.Count == 0)
+                {
+                    continue;
+                }
+
+                leagueList.UnionWith(names);
+                break;
+            }
+            catch (Exception ex)
+            {
+                LogError($"Failed to download the poe.ninja league list from {leagueUrl}: {ex.Message}");
+            }
         }
 
         leagueList.Add("Standard");
@@ -236,6 +253,40 @@ public partial class NinjaPricer : BaseSettingsPlugin<NinjaPricerSettings>
         }
 
         Settings.DataSourceSettings.League.SetListValues(leagueList.ToList());
+    }
+
+    private static HashSet<string> ParsePoeNinjaLeagueNames(string json)
+    {
+        var names = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase);
+
+        PoeNinjaLeague[] economyLeagues = null;
+        try
+        {
+            economyLeagues = JsonConvert.DeserializeObject<PoeNinjaLeague[]>(json);
+        }
+        catch (JsonException)
+        {
+            // The compatibility response is an object with economyLeagues;
+            // parse that shape below instead of treating it as a hard failure.
+        }
+
+        if (economyLeagues != null)
+        {
+            names.UnionWith(economyLeagues
+                .Select(league => league.name)
+                .Where(name => !string.IsNullOrWhiteSpace(name)));
+        }
+
+        if (names.Count > 0)
+        {
+            return names;
+        }
+
+        var legacyRoot = JsonConvert.DeserializeObject<LeagueRoot>(json);
+        names.UnionWith(legacyRoot?.economyLeagues?
+            .Select(league => league.name)
+            .Where(name => !string.IsNullOrWhiteSpace(name)) ?? Enumerable.Empty<string>());
+        return names;
     }
 
     private string PlayerLeague

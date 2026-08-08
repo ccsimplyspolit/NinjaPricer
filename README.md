@@ -9,8 +9,9 @@ The data can then be used to price check items such as:
 - Essences
 - Fragments
 - Uniques
+- Precursor Tablets (normal/magic/rare)
 
 The plugin can also show the overall worth of a stash tab or inventory.
 
 Item that aren't available in the data show 0c as price.
-Item that have multiple variants show a range between the lowest and highest cost. The plugin can't differentiate between them.
+Items that have multiple unique variants show a range between the lowest and highest cost. Precursor Tablets are matched by base name and rarity variant when poe.ninja provides that field.

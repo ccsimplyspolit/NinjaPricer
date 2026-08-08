@@ -31,6 +31,7 @@ public class CollectiveApiData
     // uniques under UniqueTablets. Unique Waystones and unique Tablets both classify as
     // ItemTypes.UniqueMap and price against this overview.
     public StashOverview Tablets { get; set; }
+    public StashOverview PrecursorTablets { get; set; }
     public StashOverview Charms { get; set; }
     public StashOverview SanctumRelics { get; set; }
 

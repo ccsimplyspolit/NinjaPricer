@@ -142,6 +142,7 @@ public partial class NinjaPricer
             ItemTypes.UniqueWeapon => root.Weapons,
             ItemTypes.UniqueCharm => root.Charms,
             ItemTypes.UniqueMap => root.Tablets,
+            ItemTypes.PrecursorTablet => root.PrecursorTablets,
             ItemTypes.Relic => root.SanctumRelics,
             _ => null,
         };
@@ -227,7 +228,7 @@ public partial class NinjaPricer
                     case var v when GetMatchingUniqueData(CollectedData, v) is { } stashData:
                     {
                         var matches = stashData.Lines
-                            .Where(x => x.Name == item.UniqueName || item.UniqueNameCandidates.Contains(x.Name))
+                            .Where(x => MatchesStashLine(x, item))
                             .ToList();
 
                         if (matches.Count == 1)
@@ -263,6 +264,26 @@ public partial class NinjaPricer
             item.PriceData.MinChaosValue = Math.Max(0, item.PriceData.MinChaosValue);
             item.PriceData.MaxChaosValue = Math.Max(item.PriceData.MaxChaosValue, item.PriceData.MinChaosValue);
         }
+    }
+
+    private static bool MatchesStashLine(StashLine line, CustomItem item)
+    {
+        var nameMatches = item.ItemType == ItemTypes.PrecursorTablet
+            ? string.Equals(line.Name, item.BaseName, StringComparison.OrdinalIgnoreCase)
+            : string.Equals(line.Name, item.UniqueName, StringComparison.OrdinalIgnoreCase)
+              || item.UniqueNameCandidates.Any(x => string.Equals(x, line.Name, StringComparison.OrdinalIgnoreCase));
+
+        if (!nameMatches)
+        {
+            return false;
+        }
+
+        // poe.ninja splits Precursor Tablets by rarity variant. Keep the
+        // variant filter when the API provides it; old cached files remain
+        // usable because an absent variant is treated as a wildcard.
+        return item.ItemType != ItemTypes.PrecursorTablet
+               || string.IsNullOrWhiteSpace(line.Variant)
+               || string.Equals(line.Variant, item.Rarity.ToString(), StringComparison.OrdinalIgnoreCase);
     }
 
     private bool ShouldUpdateValues()
