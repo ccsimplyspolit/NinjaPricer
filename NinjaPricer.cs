@@ -91,6 +91,7 @@ public partial class NinjaPricer : BaseSettingsPlugin<NinjaPricerSettings>
     public override void OnPluginDestroyForHotReload()
     {
         DetachSettingsHooks();
+        _downloader.Dispose();
         base.OnPluginDestroyForHotReload();
     }
 
