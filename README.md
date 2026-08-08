@@ -20,3 +20,18 @@ Items that have multiple unique variants show a range between the lowest and hig
 
 The background downloader keeps a per-league JSON cache, revalidates cached responses with
 ETag when poe.ninja supplies one, and cancels in-flight work when ExileCore2 unloads the plugin.
+
+## Operation logic
+
+`Initialise` discovers the PoE2 league and starts a background reload. The
+downloader fetches the 14 exchange and 9 stash categories from poe.ninja's
+`/poe2/api`, keeps raw JSON per league, and publishes one complete snapshot.
+`CustomItem` maps an item to a PoE2 category; `NinjaPricer.Methods` resolves
+exchange/stash prices, including `PrecursorTablets` by base name and
+Normal/Magic/Rare variant. Render consumes the snapshot for inventory, stash,
+ground, hover, and trade overlays. `GetValue` and `GetBaseItemTypeValue` are
+the bridge API used by companion plugins.
+
+Build: **PASS**, classification **CURRENT_WITH_WARNINGS**; live loader/UI smoke
+test remains pending. See the [central PoE2 report](../../README.md) and the
+[audit](../../../docs/plugins/NinjaPricer/AUDIT.md).
