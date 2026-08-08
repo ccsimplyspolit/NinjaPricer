@@ -55,7 +55,9 @@ public partial class NinjaPricer
     private List<NormalInventoryItem> GetInventoryItems()
     {
         var inventory = GameController.Game.IngameState.IngameUi.InventoryPanel;
-        return !inventory.IsVisible ? null : inventory[InventoryIndex.PlayerInventory].VisibleInventoryItems.ToList();
+        return !inventory.IsVisible
+            ? []
+            : inventory[InventoryIndex.PlayerInventory].VisibleInventoryItems?.ToList() ?? [];
     }
 
     private static List<CustomItem> FormatItems(IEnumerable<NormalInventoryItem> itemList)
@@ -297,7 +299,6 @@ public partial class NinjaPricer
         {
             return false;
         }
-        // TODO: Get inventory items and not just stash tab items, this will be done at a later date
         try
         {
             if (!Settings.StashValueSettings.Show)
@@ -327,7 +328,6 @@ public partial class NinjaPricer
         {
             return false;
         }
-        // TODO: Get inventory items and not just stash tab items, this will be done at a later date
         try
         {
             if (!Settings.InventoryValueSettings.Show.Value || !GameController.Game.IngameState.IngameUi.InventoryPanel.IsVisible)

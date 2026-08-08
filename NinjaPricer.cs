@@ -25,6 +25,7 @@ public partial class NinjaPricer : BaseSettingsPlugin<NinjaPricerSettings>
     private readonly DataDownloader _downloader = new DataDownloader();
     private Dictionary<string, string> _soundFiles = [];
     private readonly HashSet<string> _preloadedSoundFiles = new(StringComparer.OrdinalIgnoreCase);
+    private bool _settingsHooksAttached;
 
     public override bool Initialise()
     {
@@ -38,25 +39,12 @@ public partial class NinjaPricer : BaseSettingsPlugin<NinjaPricerSettings>
         UpdateLeagueList();
         _downloader.StartDataReload(Settings.DataSourceSettings.League.Value, false);
 
-        Settings.DataSourceSettings.ReloadPrices.OnPressed += () => _downloader.StartDataReload(Settings.DataSourceSettings.League.Value, true);
-        Settings.UniqueIdentificationSettings.RebuildUniqueItemArtMappingBackup.OnPressed += () =>
-        {
-            var mapping = GetGameFileUniqueArtMapping();
-            if (mapping != null)
-            {
-                File.WriteAllText(Path.Join(DirectoryFullName, CustomUniqueArtMappingPath), JsonConvert.SerializeObject(mapping, Formatting.Indented));
-            }
-        };
-        Settings.UniqueIdentificationSettings.IgnoreGameUniqueArtMapping.OnValueChanged += (_, _) =>
-        {
-            UniqueArtMapping = GetUniqueArtMapping();
-        };
-        Settings.DataSourceSettings.SyncCurrentLeague.OnValueChanged += (_, _) => SyncCurrentLeague();
+        Settings.DataSourceSettings.ReloadPrices.OnPressed += OnReloadPrices;
+        Settings.UniqueIdentificationSettings.RebuildUniqueItemArtMappingBackup.OnPressed += RebuildUniqueArtMappingBackup;
+        Settings.UniqueIdentificationSettings.IgnoreGameUniqueArtMapping.OnValueChanged += OnIgnoreGameUniqueArtMappingChanged;
+        Settings.DataSourceSettings.SyncCurrentLeague.OnValueChanged += OnSyncCurrentLeagueChanged;
         CustomItem.InitCustomItem(this);
-        Settings.DebugSettings.ResetInspectedItem.OnPressed += () =>
-        {
-            _inspectedItem = null;
-        };
+        Settings.DebugSettings.ResetInspectedItem.OnPressed += ResetInspectedItem;
         GameController.PluginBridge.SaveMethod("NinjaPrice.GetValue", (Entity e) =>
         {
             var customItem = new CustomItem(e, null);
@@ -70,26 +58,63 @@ public partial class NinjaPricer : BaseSettingsPlugin<NinjaPricerSettings>
             return customItem.PriceData.MinChaosValue;
         });
 
-        Settings.SoundNotificationSettings.ResetEntityNotificationFlags.OnPressed += () =>
-        {
-            _soundPlayedTracker.Clear();
-        };
-        Settings.SoundNotificationSettings.OpenConfigDirectory.OnPressed += () =>
-        {
-            Process.Start("explorer.exe", ConfigDirectory);
-        };
+        Settings.SoundNotificationSettings.ResetEntityNotificationFlags.OnPressed += ResetEntityNotificationFlags;
+        Settings.SoundNotificationSettings.OpenConfigDirectory.OnPressed += OpenConfigDirectory;
         Settings.SoundNotificationSettings.ReloadSoundList.OnPressed += ReloadSoundList;
         ReloadSoundList();
+        _settingsHooksAttached = true;
 
         return true;
+    }
+
+    private void OnReloadPrices() => _downloader.StartDataReload(Settings.DataSourceSettings.League.Value, true);
+
+    private void RebuildUniqueArtMappingBackup()
+    {
+        var mapping = GetGameFileUniqueArtMapping();
+        if (mapping != null)
+        {
+            File.WriteAllText(Path.Join(DirectoryFullName, CustomUniqueArtMappingPath), JsonConvert.SerializeObject(mapping, Formatting.Indented));
+        }
+    }
+
+    private void OnIgnoreGameUniqueArtMappingChanged(object _, bool __) => UniqueArtMapping = GetUniqueArtMapping();
+
+    private void OnSyncCurrentLeagueChanged(object _, bool __) => SyncCurrentLeague();
+
+    private void ResetInspectedItem() => _inspectedItem = null;
+
+    private void ResetEntityNotificationFlags() => _soundPlayedTracker.Clear();
+
+    private void OpenConfigDirectory() => Process.Start("explorer.exe", ConfigDirectory);
+
+    public override void OnPluginDestroyForHotReload()
+    {
+        DetachSettingsHooks();
+        base.OnPluginDestroyForHotReload();
     }
 
     public override void Dispose()
     {
         // Stop in-flight HTTP/file work before ExileCore2 tears down the plugin instance.  This
         // also prevents a queued league refresh from publishing a snapshot after unload.
+        DetachSettingsHooks();
         _downloader.Dispose();
         base.Dispose();
+    }
+
+    private void DetachSettingsHooks()
+    {
+        if (!_settingsHooksAttached) return;
+        Settings.DataSourceSettings.ReloadPrices.OnPressed -= OnReloadPrices;
+        Settings.UniqueIdentificationSettings.RebuildUniqueItemArtMappingBackup.OnPressed -= RebuildUniqueArtMappingBackup;
+        Settings.UniqueIdentificationSettings.IgnoreGameUniqueArtMapping.OnValueChanged -= OnIgnoreGameUniqueArtMappingChanged;
+        Settings.DataSourceSettings.SyncCurrentLeague.OnValueChanged -= OnSyncCurrentLeagueChanged;
+        Settings.DebugSettings.ResetInspectedItem.OnPressed -= ResetInspectedItem;
+        Settings.SoundNotificationSettings.ResetEntityNotificationFlags.OnPressed -= ResetEntityNotificationFlags;
+        Settings.SoundNotificationSettings.OpenConfigDirectory.OnPressed -= OpenConfigDirectory;
+        Settings.SoundNotificationSettings.ReloadSoundList.OnPressed -= ReloadSoundList;
+        _settingsHooksAttached = false;
     }
 
     private void ReloadSoundList()
