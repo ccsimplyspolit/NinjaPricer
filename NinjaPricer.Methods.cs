@@ -141,7 +141,7 @@ public partial class NinjaPricer
             ItemTypes.UniqueJewel => root.Jewels,
             ItemTypes.UniqueWeapon => root.Weapons,
             ItemTypes.UniqueCharm => root.Charms,
-            ItemTypes.UniqueMap => root.Maps,
+            ItemTypes.UniqueMap => root.Tablets,
             ItemTypes.Relic => root.SanctumRelics,
             _ => null,
         };

@@ -35,7 +35,7 @@ public class NinjaPricerSettings : ISettings
 public class DebugSettings
 {
     public ToggleNode EnableDebugLogging { get; set; } = new(false);
-    public HotkeyNode InspectHoverHotkey { get; set; } = new(Keys.None);
+    public HotkeyNodeV2 InspectHoverHotkey { get; set; } = new(Keys.None);
 
     [JsonIgnore]
     public ButtonNode ResetInspectedItem { get; set; } = new();

@@ -21,10 +21,10 @@ public partial class NinjaPricer : BaseSettingsPlugin<NinjaPricerSettings>
     private const string CustomUniqueArtMappingPath = "uniqueArtMapping.json";
     private const string DefaultUniqueArtMappingPath = "uniqueArtMapping.default.json";
     internal const string DefaultWav = "default.wav";
-    private int _updating;
     public Dictionary<string, List<string>> UniqueArtMapping = new Dictionary<string, List<string>>();
     private readonly DataDownloader _downloader = new DataDownloader();
     private Dictionary<string, string> _soundFiles = [];
+    private readonly HashSet<string> _preloadedSoundFiles = new(StringComparer.OrdinalIgnoreCase);
 
     public override bool Initialise()
     {
@@ -33,6 +33,7 @@ public partial class NinjaPricer : BaseSettingsPlugin<NinjaPricerSettings>
         _downloader.log = LogMessage;
         NinjaDirectory = Path.Join(DirectoryFullName, "NinjaData");
         Directory.CreateDirectory(NinjaDirectory);
+        Input.RegisterKey(Settings.DebugSettings.InspectHoverHotkey.Value);
 
         UpdateLeagueList();
         _downloader.StartDataReload(Settings.DataSourceSettings.League.Value, false);
@@ -97,6 +98,7 @@ public partial class NinjaPricer : BaseSettingsPlugin<NinjaPricerSettings>
             .Select(x => (Path.GetFileNameWithoutExtension(x), x))
             .DistinctBy(x => x.Item1, StringComparer.InvariantCultureIgnoreCase)
             .ToDictionary(x => x.Item1, x => x.x, StringComparer.InvariantCultureIgnoreCase);
+        _preloadedSoundFiles.Clear();
     }
 
     public override void AreaChange(AreaInstance area)

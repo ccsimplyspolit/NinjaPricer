@@ -56,7 +56,10 @@ public class DataDownloader
         { "Accessories", "UniqueAccessories"},
         { "Flasks", "UniqueFlasks"},
         { "Jewels", "UniqueJewels"},
-        { "Maps", "UniqueMaps"},
+        // PoE2 0.5 retired UniqueMaps (HTTP 404); map-like uniques now live under UniqueTablets.
+        // The distinct key also changes the on-disk cache filename to Tablets.json, so a stale
+        // Maps.json backup from an older league can no longer surface wrong prices.
+        { "Tablets", "UniqueTablets"},
         { "Charms", "UniqueCharms" },
         { "SanctumRelics", "UniqueSanctumRelics" },
     };
@@ -157,7 +160,7 @@ public class DataDownloader
             case "Accessories": data.Accessories = value; break;
             case "Flasks": data.Flasks = value; break;
             case "Jewels": data.Jewels = value; break;
-            case "Maps": data.Maps = value; break;
+            case "Tablets": data.Tablets = value; break;
             case "Charms": data.Charms = value; break;
             case "SanctumRelics": data.SanctumRelics = value; break;
         }

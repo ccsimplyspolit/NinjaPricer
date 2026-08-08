@@ -26,7 +26,11 @@ public class CollectiveApiData
     public StashOverview Accessories { get; set; }
     public StashOverview Flasks { get; set; }
     public StashOverview Jewels { get; set; }
-    public StashOverview Maps { get; set; }
+    // PoE2 0.5 (Return of the Ancients) reworked endgame maps into Waystones + Atlas Tablets.
+    // poe.ninja retired the UniqueMaps stash type (now HTTP 404) and serves the map-like
+    // uniques under UniqueTablets. Unique Waystones and unique Tablets both classify as
+    // ItemTypes.UniqueMap and price against this overview.
+    public StashOverview Tablets { get; set; }
     public StashOverview Charms { get; set; }
     public StashOverview SanctumRelics { get; set; }
 

@@ -106,6 +106,9 @@ public partial class NinjaPricer
 
     public override void Render()
     {
+        if (!Settings.Enable)
+            return;
+
         #region Reset All Data
 
         StashTabValue = 0;
@@ -538,9 +541,10 @@ public partial class NinjaPricer
     private void DrawWorthWidget(double chaosValue, Vector2 pos, int significantDigits, Color textColor, bool drawBackground, List<CustomItem> topValueItems) => DrawWorthWidget("", false, chaosValue, pos, significantDigits, textColor, drawBackground, topValueItems);
     private void DrawWorthWidget(string initialString, bool indent, double chaosValue, Vector2 pos, int significantDigits, Color textColor, bool drawBackground, List<CustomItem> topValueItems)
     {
-        var text = $"{initialString}{(indent ? "\t" : "")}Exalt: {chaosValue.FormatNumber(significantDigits)}" + (DivinePrice != null
-            ? $"\n{(indent ? "\t" : "")}Divine: {(chaosValue / DivinePrice).FormatNumber(significantDigits)}"
-            : "");
+        var text = $"{initialString}{(indent ? "\t" : "")}Exalt: {chaosValue.FormatNumber(significantDigits)}" +
+                   (DivinePrice > 0 && double.IsFinite(DivinePrice)
+                       ? $"\n{(indent ? "\t" : "")}Divine: {(chaosValue / DivinePrice).FormatNumber(significantDigits)}"
+                       : "");
         if (topValueItems.Count > 0)
         {
             var maxChaosValueLength = topValueItems.Max(x => x.PriceData.MinChaosValue.FormatNumber(2, forceDecimals: true).Length);
@@ -721,10 +725,8 @@ public partial class NinjaPricer
 
                                 if (File.Exists(fileToPlay))
                                 {
-                                    if (!GameController.SoundController.HasSound(fileToPlay))
-                                    {
+                                    if (_preloadedSoundFiles.Add(fileToPlay))
                                         GameController.SoundController.PreloadSound(fileToPlay);
-                                    }
 
                                     GameController.SoundController.PlaySound(fileToPlay, Settings.SoundNotificationSettings.Volume);
                                 }
