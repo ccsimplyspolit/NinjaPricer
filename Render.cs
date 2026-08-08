@@ -102,8 +102,6 @@ public partial class NinjaPricer
         return result;
     }
 
-    // TODO: Get hovered items && items from inventory - Getting hovered item  will become useful later on
-
     public override void Render()
     {
         if (!Settings.Enable)
