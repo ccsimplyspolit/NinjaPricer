@@ -1,5 +1,5 @@
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using Newtonsoft.Json;
 
 namespace NinjaPricer.API.PoeNinja.Models;
@@ -23,8 +23,36 @@ public class ExchangeOverview
         {
             if (_linesByName == null)
             {
-                _linesByName = Items.Join(Lines, i => i.Id, l => l.Id, (i, l) => (i, l))
-                    .ToDictionary(p => p.i.Name, p => (p.l, p.i));
+                _linesByName = new Dictionary<string, (ExchangeLine Line, ExchangeItem Item)>(
+                    StringComparer.OrdinalIgnoreCase);
+
+                if (Items == null || Lines == null)
+                {
+                    return _linesByName;
+                }
+
+                var linesById = new Dictionary<string, ExchangeLine>(StringComparer.Ordinal);
+                foreach (var line in Lines)
+                {
+                    if (!string.IsNullOrWhiteSpace(line?.Id) && !linesById.ContainsKey(line.Id))
+                    {
+                        linesById[line.Id] = line;
+                    }
+                }
+
+                foreach (var item in Items)
+                {
+                    if (item == null || string.IsNullOrWhiteSpace(item.Name) ||
+                        string.IsNullOrWhiteSpace(item.Id) ||
+                        !linesById.TryGetValue(item.Id, out var line))
+                    {
+                        continue;
+                    }
+
+                    // A malformed/duplicated upstream item name should not abort the entire
+                    // pricing snapshot. Keep the first deterministic entry instead.
+                    _linesByName.TryAdd(item.Name, (line, item));
+                }
             }
 
             return _linesByName;
@@ -32,7 +60,10 @@ public class ExchangeOverview
     }
 
     [JsonIgnore]
-    public double PrimaryToExaltedRate => Core.Primary == "exalted" ? 1 : Core.Rates.Exalted.Value;
+    public double PrimaryToExaltedRate =>
+        string.Equals(Core?.Primary, "exalted", StringComparison.OrdinalIgnoreCase)
+            ? 1
+            : Core?.Rates?.Exalted ?? 0;
 }
 
 public class StashOverview
@@ -44,7 +75,10 @@ public class StashOverview
     public List<StashLine> Lines { get; set; }
 
     [JsonIgnore]
-    public double PrimaryToExaltedRate => Core.Primary == "exalted" ? 1 : Core.Rates.Exalted.Value;
+    public double PrimaryToExaltedRate =>
+        string.Equals(Core?.Primary, "exalted", StringComparison.OrdinalIgnoreCase)
+            ? 1
+            : Core?.Rates?.Exalted ?? 0;
 }
 
 public class CoreData

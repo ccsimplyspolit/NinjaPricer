@@ -84,6 +84,14 @@ public partial class NinjaPricer : BaseSettingsPlugin<NinjaPricerSettings>
         return true;
     }
 
+    public override void Dispose()
+    {
+        // Stop in-flight HTTP/file work before ExileCore2 tears down the plugin instance.  This
+        // also prevents a queued league refresh from publishing a snapshot after unload.
+        _downloader.Dispose();
+        base.Dispose();
+    }
+
     private void ReloadSoundList()
     {
         var defaultFilePath = Path.Join(ConfigDirectory, DefaultWav);

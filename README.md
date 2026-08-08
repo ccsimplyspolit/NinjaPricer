@@ -5,13 +5,18 @@ What does it do?
 This plugin downloads public price data.
 The data can then be used to price check items such as:
 - Currency
-- Divination Cards
 - Essences
 - Fragments
 - Uniques
 - Precursor Tablets (normal/magic/rare)
 
+The category list follows the current PoE2 `/poe2/api` contract. PoE1 endpoints and
+PoE1-only item mechanics are intentionally not used.
+
 The plugin can also show the overall worth of a stash tab or inventory.
 
 Item that aren't available in the data show 0c as price.
 Items that have multiple unique variants show a range between the lowest and highest cost. Precursor Tablets are matched by base name and rarity variant when poe.ninja provides that field.
+
+The background downloader keeps a per-league JSON cache, revalidates cached responses with
+ETag when poe.ninja supplies one, and cancels in-flight work when ExileCore2 unloads the plugin.

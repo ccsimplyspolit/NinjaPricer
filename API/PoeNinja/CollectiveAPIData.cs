@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using NinjaPricer.API.PoeNinja.Models;
 
@@ -41,17 +40,22 @@ public class CollectiveApiData
     {
         get
         {
-            if (Currency.Core.Primary == "divine")
+            if (Currency?.Core == null)
             {
-                return Currency.Core.Rates.Exalted.Value;
+                return 0;
             }
 
-            if (Currency.Core.Primary == "exalted")
+            if (string.Equals(Currency.Core.Primary, "divine", System.StringComparison.OrdinalIgnoreCase))
             {
-                return Currency.Lines.First(x => x.Id == "divine").PrimaryValue;
+                return Currency.Core.Rates?.Exalted ?? 0;
             }
 
-            throw new Exception($"Unknown primary {Currency.Core.Primary}");
+            if (string.Equals(Currency.Core.Primary, "exalted", System.StringComparison.OrdinalIgnoreCase))
+            {
+                return Currency.Lines?.FirstOrDefault(x => x?.Id == "divine")?.PrimaryValue ?? 0;
+            }
+
+            return 0;
         }
     }
 }
