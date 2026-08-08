@@ -32,6 +32,9 @@ public static class Utils
     // produce a 304 response that cannot be used after a plugin restart.
     private static readonly ConcurrentDictionary<string, string> Etags = new(StringComparer.Ordinal);
     private static readonly AsyncLocal<bool> LastRequestNotModified = new();
+    private static readonly SemaphoreSlim RequestGate = new(1, 1);
+    private static readonly TimeSpan MinimumRequestSpacing = TimeSpan.FromMilliseconds(200);
+    private static DateTime _nextRequestAtUtc = DateTime.MinValue;
 
     static Utils()
     {
@@ -78,11 +81,13 @@ public static class Utils
             return await DownloadAndRememberETagWithStatus(url, cancellationToken).ConfigureAwait(false);
         }
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.TryAddWithoutValidation("If-None-Match", etag);
-        using var response = await Http.SendAsync(
-            request,
-            HttpCompletionOption.ResponseHeadersRead,
+        using var response = await SendWithRetryAsync(
+            () =>
+            {
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.TryAddWithoutValidation("If-None-Match", etag);
+                return request;
+            },
             cancellationToken).ConfigureAwait(false);
 
         if (response.StatusCode == HttpStatusCode.NotModified)
@@ -132,7 +137,11 @@ public static class Utils
     public static async Task<byte[]> DownloadBytesFromUrl(string url, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(url);
-        return await Http.GetByteArrayAsync(url, cancellationToken).ConfigureAwait(false);
+        using var response = await SendWithRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, url),
+            cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<DownloadResult> DownloadAndRememberETagWithStatus(
@@ -141,9 +150,8 @@ public static class Utils
     {
         cancellationToken.ThrowIfCancellationRequested();
         LastRequestNotModified.Value = false;
-        using var response = await Http.GetAsync(
-            url,
-            HttpCompletionOption.ResponseHeadersRead,
+        using var response = await SendWithRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, url),
             cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
         RememberETag(url, response);
@@ -151,4 +159,58 @@ public static class Utils
             await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false),
             false);
     }
+
+    private static async Task<HttpResponseMessage> SendWithRetryAsync(
+        Func<HttpRequestMessage> requestFactory,
+        CancellationToken cancellationToken)
+    {
+        const int maxAttempts = 3;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            using var request = requestFactory();
+            var response = await SendRateLimitedAsync(request, cancellationToken).ConfigureAwait(false);
+            if (!IsTransient(response.StatusCode) || attempt == maxAttempts)
+                return response;
+
+            var retryDelay = response.Headers.RetryAfter?.Delta
+                ?? (response.Headers.RetryAfter?.Date is { } retryAt
+                    ? retryAt - DateTimeOffset.UtcNow
+                    : TimeSpan.FromMilliseconds(250 * Math.Pow(2, attempt - 1)));
+            response.Dispose();
+            if (retryDelay < TimeSpan.FromMilliseconds(100))
+                retryDelay = TimeSpan.FromMilliseconds(100);
+            if (retryDelay > TimeSpan.FromSeconds(10))
+                retryDelay = TimeSpan.FromSeconds(10);
+            await Task.Delay(retryDelay, cancellationToken).ConfigureAwait(false);
+        }
+
+        throw new InvalidOperationException("The poe.ninja request retry loop ended unexpectedly.");
+    }
+
+    private static async Task<HttpResponseMessage> SendRateLimitedAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        await RequestGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var delay = _nextRequestAtUtc - DateTime.UtcNow;
+            if (delay > TimeSpan.Zero)
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+
+            _nextRequestAtUtc = DateTime.UtcNow + MinimumRequestSpacing;
+            return await Http.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            RequestGate.Release();
+        }
+    }
+
+    private static bool IsTransient(HttpStatusCode statusCode) =>
+        statusCode == HttpStatusCode.TooManyRequests ||
+        (int)statusCode >= 500;
 }

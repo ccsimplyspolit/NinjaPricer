@@ -28,6 +28,7 @@ public sealed class DataDownloader : IDisposable
     private string _queuedLeague;
     private bool _queuedForceRefresh;
     private CollectiveApiData _collectedData;
+    private string _loadedLeague;
 
     private sealed class LeagueMetadata
     {
@@ -153,7 +154,19 @@ public sealed class DataDownloader : IDisposable
                 return;
             }
 
-            newData.DivineToExaltedRate = newData.DivineToExaltedRateRaw;
+            // Keep the last known category for this league when one endpoint is temporarily
+            // unavailable (429/5xx/maintenance). Never merge across leagues: a stale price from
+            // another league is worse than an unavailable price.
+            var previousData = Volatile.Read(ref _collectedData);
+            if (previousData != null && string.Equals(_loadedLeague, league, StringComparison.OrdinalIgnoreCase))
+            {
+                newData.MergeMissingFrom(previousData);
+                log?.Invoke("Merged unavailable categories from the previous same-league snapshot");
+            }
+
+            var derivedDivineRate = newData.DivineToExaltedRateRaw;
+            if (derivedDivineRate > 0 && !double.IsNaN(derivedDivineRate) && !double.IsInfinity(derivedDivineRate))
+                newData.DivineToExaltedRate = derivedDivineRate;
             await WriteTextAtomically(
                 metadataPath,
                 JsonConvert.SerializeObject(new LeagueMetadata { LastLoadTime = DateTime.UtcNow }),
@@ -162,6 +175,7 @@ public sealed class DataDownloader : IDisposable
             // Publish only after every category has had a chance to load.  Volatile publication
             // prevents readers on the render thread from observing a partially built snapshot.
             Volatile.Write(ref _collectedData, newData);
+            _loadedLeague = league;
             log?.Invoke("Finished gathering data from poe.ninja; pricing snapshot updated");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

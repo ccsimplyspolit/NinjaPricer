@@ -58,4 +58,41 @@ public class CollectiveApiData
             return 0;
         }
     }
+
+    /// <summary>
+    /// Preserve categories from the last good snapshot when a refresh is partially
+    /// rate-limited or an upstream category is temporarily unavailable.  The caller
+    /// must only use this for the same league; prices are never copied between leagues.
+    /// </summary>
+    public void MergeMissingFrom(CollectiveApiData previous)
+    {
+        if (previous == null)
+            return;
+
+        Currency ??= previous.Currency;
+        Breach ??= previous.Breach;
+        Delirium ??= previous.Delirium;
+        Essences ??= previous.Essences;
+        Runes ??= previous.Runes;
+        Ritual ??= previous.Ritual;
+        Fragments ??= previous.Fragments;
+        UncutGems ??= previous.UncutGems;
+        Abyss ??= previous.Abyss;
+        Expedition ??= previous.Expedition;
+        Verisium ??= previous.Verisium;
+        LineageSupportGems ??= previous.LineageSupportGems;
+        SoulCores ??= previous.SoulCores;
+        Idols ??= previous.Idols;
+        Weapons ??= previous.Weapons;
+        Armour ??= previous.Armour;
+        Accessories ??= previous.Accessories;
+        Flasks ??= previous.Flasks;
+        Jewels ??= previous.Jewels;
+        Tablets ??= previous.Tablets;
+        PrecursorTablets ??= previous.PrecursorTablets;
+        Charms ??= previous.Charms;
+        SanctumRelics ??= previous.SanctumRelics;
+        if (DivineToExaltedRate <= 0 || double.IsNaN(DivineToExaltedRate) || double.IsInfinity(DivineToExaltedRate))
+            DivineToExaltedRate = previous.DivineToExaltedRate;
+    }
 }
