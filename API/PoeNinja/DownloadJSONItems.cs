@@ -29,6 +29,7 @@ public sealed class DataDownloader : IDisposable
     private bool _queuedForceRefresh;
     private CollectiveApiData _collectedData;
     private string _loadedLeague;
+    private string _requestedLeague;
 
     private sealed class LeagueMetadata
     {
@@ -78,27 +79,37 @@ public sealed class DataDownloader : IDisposable
 
     public void StartDataReload(string league, bool forceRefresh)
     {
-        if (_disposed)
-        {
-            return;
-        }
-
         league = NormalizeLeague(league);
-        log?.Invoke($"Getting data for {league}");
-
-        if (Interlocked.CompareExchange(ref _updating, 1, 0) != 0)
+        lock (_reloadGate)
         {
-            lock (_reloadGate)
+            if (_disposed)
+            {
+                return;
+            }
+
+            _requestedLeague = league;
+            if (!string.Equals(_loadedLeague, league, StringComparison.OrdinalIgnoreCase))
+            {
+                // Never expose the previous league while the new snapshot is loading.
+                Volatile.Write(ref _collectedData, null);
+                _loadedLeague = null;
+            }
+
+            if (Interlocked.CompareExchange(ref _updating, 1, 0) != 0)
             {
                 _queuedLeague = league;
                 _queuedForceRefresh |= forceRefresh;
+                log?.Invoke("Update is already in progress; queued the latest league refresh");
+                return;
             }
-
-            log?.Invoke("Update is already in progress; queued the latest league refresh");
-            return;
         }
 
-        _ = Task.Run(() => ReloadDataAsync(league, forceRefresh, _lifetime.Token), _lifetime.Token);
+        log?.Invoke($"Getting data for {league}");
+        // Do not pass the lifetime token to Task.Run itself: if disposal wins the
+        // scheduling race, a pre-cancelled task would skip ReloadDataAsync's finally
+        // block and leave the single-flight gate stuck. The async body observes the
+        // token and still exits promptly.
+        _ = Task.Run(() => ReloadDataAsync(league, forceRefresh, _lifetime.Token));
     }
 
     private async Task ReloadDataAsync(string league, bool forceRefresh, CancellationToken cancellationToken)
@@ -154,6 +165,15 @@ public sealed class DataDownloader : IDisposable
                 return;
             }
 
+            lock (_reloadGate)
+            {
+                if (_disposed || !string.Equals(_requestedLeague, league, StringComparison.OrdinalIgnoreCase))
+                {
+                    log?.Invoke($"Discarding superseded pricing snapshot for {league}");
+                    return;
+                }
+            }
+
             // Keep the last known category for this league when one endpoint is temporarily
             // unavailable (429/5xx/maintenance). Never merge across leagues: a stale price from
             // another league is worse than an unavailable price.
@@ -174,8 +194,17 @@ public sealed class DataDownloader : IDisposable
 
             // Publish only after every category has had a chance to load.  Volatile publication
             // prevents readers on the render thread from observing a partially built snapshot.
-            Volatile.Write(ref _collectedData, newData);
-            _loadedLeague = league;
+            lock (_reloadGate)
+            {
+                if (_disposed || !string.Equals(_requestedLeague, league, StringComparison.OrdinalIgnoreCase))
+                {
+                    log?.Invoke($"Discarding superseded pricing snapshot for {league}");
+                    return;
+                }
+
+                Volatile.Write(ref _collectedData, newData);
+                _loadedLeague = league;
+            }
             log?.Invoke("Finished gathering data from poe.ninja; pricing snapshot updated");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

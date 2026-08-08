@@ -20,8 +20,10 @@ Items that have multiple unique variants show a range between the lowest and hig
 
 The background downloader keeps a per-league JSON cache, revalidates cached responses with
 ETag when poe.ninja supplies one, and cancels in-flight work when ExileCore2 unloads the plugin.
-Settings callbacks are detached on hot reload/disposal so a reloaded instance cannot trigger
-stale reload, sound, or mapping handlers.
+League switches invalidate the old in-memory snapshot immediately and a request-generation
+guard prevents a superseded download from publishing prices for the previous league. Settings
+callbacks are detached on hot reload/disposal so a reloaded instance cannot trigger stale
+reload, sound, or mapping handlers.
 
 ## Operation logic
 
